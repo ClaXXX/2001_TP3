@@ -187,9 +187,9 @@ namespace TP3
     void DisqueVirtuel::repository_removeLink(std::vector<dirEntry*>& dirEntrys, size_t index) {
       iNode *ino = m_blockDisque.at(BASE_BLOCK_INODE + dirEntrys.at(index)->m_iNode).m_inode;
 
+      ino->st_nlink-=1;
       delete dirEntrys.at(index);
       dirEntrys.erase(dirEntrys.cbegin() + index, dirEntrys.cbegin() + index + 1);
-      ino->st_nlink -= 1;
       if (!ino->st_nlink) { // Si plus aucun lien ne pointe sur un repository, alors libère les données qui y sont liées
         inode_free(ino->st_ino);
         block_free(ino->st_block);
@@ -299,11 +299,11 @@ namespace TP3
         return 0;
       if (ino->st_mode == S_IFDIR && m_blockDisque.at(ino->st_block).m_dirEntry.size() > 2)
         return error_print(0, filename + ": Not empty.");
-      for (size_t i = 0; i < m_blockDisque.at(ino->st_block).m_dirEntry.size(); i++) {
+      repository_removeParentLink(parent->st_ino, ino->st_ino);
+      for (int i = m_blockDisque.at(ino->st_block).m_dirEntry.size() - 1; i >= 0; i--) {
         repository_removeLink(m_blockDisque.at(ino->st_block).m_dirEntry, i);
         ino->st_size -= 28;
       }
-      repository_removeParentLink(parent->st_ino, ino->st_ino);
       return 1;
     }
 
@@ -316,7 +316,7 @@ namespace TP3
       // Creer tous les inodes
       for (size_t i = 0; i < N_INODE_ON_DISK && inode_create(i); i++);
       // Prend tous les block jusqu'au bloc root (laisse le bloc root libre pour l'instant)
-      for (size_t i = 0; i < 23; i++) m_blockDisque.at(FREE_BLOCK_BITMAP).m_bitmap[i] = false;
+      for (size_t i = 0; i < 24; i++) m_blockDisque.at(FREE_BLOCK_BITMAP).m_bitmap[i] = false;
       if (!inode_take(0))
         return 0;
       return !!repository_createEmpty(nullptr, "", S_IFDIR); // creer le dossier root
